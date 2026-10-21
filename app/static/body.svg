@@ -1,0 +1,12 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="400" fill="#111827"/>
+  
+  <!-- Shoulders/Suit -->
+  <path d="M50 400 L50 300 Q50 250 100 240 L300 240 Q350 250 350 300 L350 400" fill="#1f2937"/>
+  <path d="M150 240 L200 350 L250 240" fill="#f3f4f6"/> <!-- Shirt -->
+  <path d="M190 240 L200 300 L210 240" fill="#ef4444"/> <!-- Tie -->
+  
+  <!-- Head Shadow -->
+  <circle cx="200" cy="185" r="70" fill="#00000033"/>
+</svg>

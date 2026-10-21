@@ -1,0 +1,17 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Neck -->
+  <rect x="175" y="200" width="50" height="60" fill="#f1c27d"/>
+  
+  <!-- Face -->
+  <ellipse cx="200" cy="160" rx="70" ry="85" fill="#f1c27d"/>
+  
+  <!-- Eyes -->
+  <circle cx="175" cy="150" r="8" fill="#1f2937"/>
+  <circle cx="225" cy="150" r="8" fill="#1f2937"/>
+  
+  <!-- Mouth -->
+  <path d="M180 190 Q200 200 220 190" stroke="#9a3412" stroke-width="3" fill="none"/>
+  
+  <!-- Hair -->
+  <path d="M130 140 Q130 50 200 50 Q270 50 270 140 Q270 100 250 100 Q200 120 150 100 Q130 100 130 140" fill="#4b5563"/>
+</svg>

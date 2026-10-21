@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Avatar Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#1a1a1a',
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        accent: '#8b5cf6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0f0f0f; color: #e0e0e0; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .input-field { background: #2a2a2a; border: 1px solid #404040; color: white; }
+        .input-field:focus { outline: none; border-color: #3b82f6; ring: 2px solid #3b82f6; }
+        
+        /* Avatar Animations */
+        @keyframes breathe {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.02) translateY(-2px); }
+        }
+        
+        @keyframes headBob {
+            0%, 100% { transform: rotate(0deg) translateY(0); }
+            25% { transform: rotate(1deg) translateY(2px); }
+            75% { transform: rotate(-1deg) translateY(1px); }
+        }
+
+        @keyframes handRaise {
+            0% { transform: translateY(100%); opacity: 0; }
+            20% { transform: translateY(0); opacity: 1; }
+            80% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100%); opacity: 0; }
+        }
+
+        @keyframes cameraZoom {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            overflow: hidden;
+            border-radius: 50%;
+            border: 4px solid #374151;
+            background: #1f2937;
+        }
+
+        .avatar-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.5s ease;
+        }
+
+        .layer-body { animation: breathe 4s infinite ease-in-out; }
+        .layer-head { transform-origin: bottom center; }
+        .layer-hand { 
+            width: 50%; 
+            height: auto; 
+            bottom: -10px; 
+            right: 20px; 
+            top: auto; 
+            transform: translateY(150%); /* Hidden by default */
+        }
+
+        /* States */
+        .state-speaking .layer-head { animation: headBob 2s infinite ease-in-out; }
+        .state-speaking .avatar-layer { animation-duration: 0.5s !important; } /* Faster breathing */
+        
+        .gesture-active .layer-hand {
+            animation: handRaise 3s ease-in-out forwards;
+        }
+
+        /* News Mode Styles */
+        .news-mode .avatar-container {
+            border-color: #ef4444; /* Red border for LIVE */
+            background-image: url('/static/news_bg.svg');
+            background-size: cover;
+            border-radius: 10px; /* Rectangular frame for TV style */
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 16/9;
+            height: auto;
+        }
+        
+        .news-overlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: linear-gradient(90deg, #cc0000 0%, #990000 100%);
+            color: white;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-family: 'Arial', sans-serif;
+            text-transform: uppercase;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 20;
+        }
+        
+        .news-mode .news-overlay {
+            display: flex;
+            align-items: center;
+        }
+
+        .ticker-text {
+            font-size: 0.8rem;
+            margin-left: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Adjust layers for 16:9 news mode */
+        .news-mode .avatar-layer {
+            height: 120%; /* Zoom in slightly */
+            top: 10%;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">AI Avatar Engine</h1>
+            <p class="text-gray-400 mt-2">Script Intelligence & Content Optimization System</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Inputs -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="glass p-6 rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-primary">Configuration</h2>
+                    <form id="engineForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Task Type</label>
+                            <select id="task_type" class="input-field w-full rounded-lg p-2.5">
+                                <option value="script_analysis">Script Analysis</option>
+                                <option value="rewrite">Rewrite</option>
+                                <option value="avatar_delivery">Avatar Delivery</option>
+                                <option value="automation">Automation</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Role</label>
+                                <select id="role" class="input-field w-full rounded-lg p-2.5">
+                                    <option value="news">News Anchor</option>
+                                    <option value="storyteller">Storyteller</option>
+                                    <option value="influencer">Influencer</option>
+                                    <option value="educator">Educator</option>
+                                    <option value="neutral">Neutral</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Platform</label>
+                                <select id="platform" class="input-field w-full rounded-lg p-2.5">
+                                    <option value="youtube">YouTube</option>
+                                    <option value="shorts">Shorts/TikTok</option>
+                                    <option value="reels">Reels</option>
+                                    <option value="podcast">Podcast</option>
+                                    <option value="presentation">Presentation</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Tone</label>
+                                <select id="tone" class="input-field w-full rounded-lg p-2.5">
+                                    <option value="energetic">Energetic</option>
+                                    <option value="serious">Serious</option>
+                                    <option value="calm">Calm</option>
+                                    <option value="dramatic">Dramatic</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Goal</label>
+                                <select id="goal" class="input-field w-full rounded-lg p-2.5">
+                                    <option value="engagement">Engagement</option>
+                                    <option value="clarity">Clarity</option>
+                                    <option value="conversion">Conversion</option>
+                                    <option value="automation">Automation</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Audience</label>
+                            <input type="text" id="audience" class="input-field w-full rounded-lg p-2.5" placeholder="e.g., Tech enthusiasts, Gen Z">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Script</label>
+                            <textarea id="script" rows="6" class="input-field w-full rounded-lg p-2.5" placeholder="Enter your script here..."></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02]">
+                            Process Script
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Outputs -->
+            <div class="lg:col-span-2 space-y-6" id="resultsArea" style="opacity: 0.5; pointer-events: none;">
+                
+                <!-- Analysis Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-xl border-l-4 border-yellow-500">
+                        <h3 class="text-lg font-semibold mb-3 flex items-center"><span class="mr-2">⚠️</span> Issues Detected</h3>
+                        <ul id="analysis-issues" class="list-disc list-inside text-gray-300 text-sm space-y-1">
+                            <li>Waiting for input...</li>
+                        </ul>
+                    </div>
+                    <div class="glass p-6 rounded-xl border-l-4 border-green-500">
+                        <h3 class="text-lg font-semibold mb-3 flex items-center"><span class="mr-2">🚀</span> Opportunities</h3>
+                        <ul id="analysis-opportunities" class="list-disc list-inside text-gray-300 text-sm space-y-1">
+                            <li>Waiting for input...</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Optimized Script -->
+                <div class="glass p-6 rounded-xl border-t-4 border-primary">
+                    <h3 class="text-xl font-semibold mb-4 text-primary">AI Anchor & Script</h3>
+                    
+                    <!-- Avatar Section -->
+                    <div class="mb-6 bg-black/50 rounded-lg p-4 flex flex-col items-center">
+                        <div id="avatar-stage" class="avatar-container mb-4 shadow-2xl">
+                            <!-- Body Layer -->
+                            <img src="/static/body.svg?v=2" 
+                                 class="avatar-layer layer-body" alt="Body">
+                            
+                            <!-- Head Layer -->
+                            <img src="/static/head.svg?v=2" 
+                                 class="avatar-layer layer-head" alt="Head">
+
+                            <!-- Hand Layer (Overlay) -->
+                            <img src="/static/hand.svg?v=2" 
+                                 class="avatar-layer layer-hand" alt="Hand Gesture">
+                            
+                            <!-- Talking Animation Overlay -->
+                            <div id="mouth-overlay" class="absolute bottom-1/2 left-1/2 transform -translate-x-1/2 translate-y-4 w-10 h-2 bg-black/0 transition-all duration-100 hidden">
+                                <div class="w-full h-full bg-black/40 rounded-full animate-pulse"></div>
+                            </div>
+
+                            <!-- News Overlay (Hidden by default) -->
+                            <div class="news-overlay rounded">
+                                <span class="bg-white text-red-600 px-2 py-0.5 rounded text-xs mr-2">LIVE</span>
+                                <span class="ticker-text" id="news-ticker">BREAKING NEWS: AI AVATAR ENGINE LAUNCHES</span>
+                            </div>
+                        </div>
+                        
+                        <audio id="audio-player" controls class="w-full max-w-md hidden"></audio>
+                        
+                        <div class="flex space-x-3 mt-4">
+                            <button id="play-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full flex items-center space-x-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <span>▶ Play</span>
+                            </button>
+                            
+                            <a id="download-btn" href="#" download class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full flex items-center space-x-2 transition-all opacity-50 cursor-not-allowed pointer-events-none">
+                                <span>⬇ Download Audio</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/30 p-4 rounded-lg font-mono text-sm text-gray-300 whitespace-pre-wrap" id="optimized-primary">
+                        // Optimized output will appear here...
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-700">
+                         <span class="text-xs font-semibold text-gray-500 uppercase">Alternate Version</span>
+                         <p class="text-sm text-gray-400 mt-1 italic" id="optimized-alternate">--</p>
+                    </div>
+                </div>
+
+                <!-- Delivery & Actions -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4 text-accent">Delivery Guidance</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between border-b border-gray-700 pb-2">
+                                <span class="text-gray-400">Tone</span>
+                                <span id="delivery-tone" class="text-white font-medium">--</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-700 pb-2">
+                                <span class="text-gray-400">Pace</span>
+                                <span id="delivery-pace" class="text-white font-medium">--</span>
+                            </div>
+                            <div class="mt-2">
+                                <span class="text-gray-400 block mb-1">Expressions</span>
+                                <span id="delivery-expressions" class="text-sm text-white bg-white/10 px-2 py-1 rounded">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4 text-secondary">Action Plan</h3>
+                        <div id="action-plan" class="space-y-3">
+                            <div class="flex items-center space-x-3 text-sm text-gray-500">
+                                <span>1.</span>
+                                <span>Waiting for plan...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('engineForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Gather data
+            const data = {
+                task_type: document.getElementById('task_type').value,
+                role: document.getElementById('role').value,
+                platform: document.getElementById('platform').value,
+                tone: document.getElementById('tone').value,
+                goal: document.getElementById('goal').value,
+                audience: document.getElementById('audience').value || "General Audience",
+                script: document.getElementById('script').value || " "
+            };
+
+            // UI Feedback
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerText;
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+            document.getElementById('resultsArea').style.opacity = '0.5';
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const result = await response.json();
+                
+                // Update UI
+                updateUI(result);
+                document.getElementById('resultsArea').style.opacity = '1';
+                document.getElementById('resultsArea').style.pointerEvents = 'auto';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing the request.');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        function updateUI(data) {
+            // Analysis
+            const issuesList = document.getElementById('analysis-issues');
+            issuesList.innerHTML = data.analysis.issues.map(i => `<li>${i}</li>`).join('') || '<li>No issues detected.</li>';
+
+            const oppsList = document.getElementById('analysis-opportunities');
+            oppsList.innerHTML = data.analysis.opportunities.map(o => `<li>${o}</li>`).join('') || '<li>No specific opportunities found.</li>';
+
+            // Script
+            document.getElementById('optimized-primary').innerText = data.optimized_script.primary_version;
+            document.getElementById('optimized-alternate').innerText = data.optimized_script.alternate_version || "No alternate version available.";
+
+            // Toggle News Mode
+            const avatarStage = document.getElementById('avatar-stage');
+            const ticker = document.getElementById('news-ticker');
+            
+            // Basic check for news role (in a real app, send this flag from backend)
+            const isNews = document.getElementById('role').value === 'news';
+            
+            if (isNews) {
+                avatarStage.classList.add('news-mode');
+                // Extract headline from script if possible, else default
+                let headline = "BREAKING NEWS";
+                if (data.optimized_script.primary_version.includes("BREAKING NEWS:")) {
+                    headline = data.optimized_script.primary_version.split(":")[1].split(".")[0];
+                }
+                ticker.innerText = headline.toUpperCase();
+            } else {
+                avatarStage.classList.remove('news-mode');
+            }
+
+            // Audio Player Logic
+            const audioPlayer = document.getElementById('audio-player');
+            const playBtn = document.getElementById('play-btn');
+            const downloadBtn = document.getElementById('download-btn');
+            const mouthOverlay = document.getElementById('mouth-overlay');
+            // const avatarStage = document.getElementById('avatar-stage'); // Already defined above
+
+            if (data.optimized_script.audio_url) {
+                audioPlayer.src = data.optimized_script.audio_url;
+                audioPlayer.load(); // Force reload
+                
+                // Enable Play Button only when ready
+                playBtn.disabled = true;
+                playBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                playBtn.innerHTML = '<span>⏳ Loading...</span>';
+
+                audioPlayer.oncanplay = () => {
+                    playBtn.disabled = false;
+                    playBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    playBtn.innerHTML = '<span>▶ Play</span>';
+                    playBtn.onclick = () => {
+                        audioPlayer.play().catch(e => console.error("Playback failed:", e));
+                    };
+                };
+
+                // Enable Download Button
+                downloadBtn.href = data.optimized_script.audio_url;
+                downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                
+                // Fallback if canplay doesn't fire immediately (cached)
+                if (audioPlayer.readyState >= 3) {
+                     audioPlayer.oncanplay();
+                }
+
+                // --- AVATAR CONTROLLER LOGIC ---
+                let gestureInterval;
+                const gestureFreq = data.delivery_guidance.gesture_frequency * 10000; // Convert to ms range
+                
+                audioPlayer.onplay = () => {
+                    mouthOverlay.classList.remove('hidden');
+                    playBtn.innerHTML = '<span>⏸ Speaking...</span>';
+                    
+                    // Activate Speaking State
+                    avatarStage.classList.add('state-speaking');
+
+                    // Start Random Gestures
+                    gestureInterval = setInterval(() => {
+                        // 50% chance to trigger gesture based on frequency
+                        if (Math.random() > 0.5) {
+                            triggerGesture();
+                        }
+                    }, gestureFreq); 
+                };
+
+                audioPlayer.onpause = () => {
+                    stopAvatar();
+                    playBtn.innerHTML = '<span>▶ Play</span>';
+                };
+                audioPlayer.onended = () => {
+                    stopAvatar();
+                    playBtn.innerHTML = '<span>▶ Play</span>';
+                };
+
+                function stopAvatar() {
+                    mouthOverlay.classList.add('hidden');
+                    avatarStage.classList.remove('state-speaking');
+                    clearInterval(gestureInterval);
+                }
+
+                function triggerGesture() {
+                    // Prevent overlapping gestures
+                    if (avatarStage.classList.contains('gesture-active')) return;
+
+                    avatarStage.classList.add('gesture-active');
+                    
+                    // Remove class after animation ends (3s matches CSS)
+                    setTimeout(() => {
+                        avatarStage.classList.remove('gesture-active');
+                    }, 3000);
+                }
+                // -------------------------------
+
+            } else {
+                playBtn.disabled = true;
+                playBtn.innerHTML = '<span>No Audio Available</span>';
+                
+                downloadBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                downloadBtn.removeAttribute('href');
+            }
+
+            // Delivery
+            document.getElementById('delivery-tone').innerText = data.delivery_guidance.tone;
+            document.getElementById('delivery-pace').innerText = data.delivery_guidance.pace;
+            document.getElementById('delivery-expressions').innerText = data.delivery_guidance.expressions;
+
+            // Action Plan
+            const planContainer = document.getElementById('action-plan');
+            planContainer.innerHTML = data.action_plan.map(step => `
+                <div class="flex items-start space-x-3 p-2 rounded hover:bg-white/5 transition">
+                    <div class="flex-shrink-0 w-6 h-6 rounded-full ${step.tool_required ? 'bg-secondary' : 'bg-gray-600'} flex items-center justify-center text-xs font-bold text-white">
+                        ${step.step}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-white">${step.action}</p>
+                        ${step.tool_required ? '<span class="text-xs text-secondary font-mono">Tool Required</span>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
